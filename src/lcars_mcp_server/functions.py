@@ -67,6 +67,7 @@ def search(
     results = qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=vector,
+        using="embedding",
         query_filter=query_filter,
         limit=limit,
         with_payload=True,

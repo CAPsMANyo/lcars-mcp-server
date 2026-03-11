@@ -3,12 +3,14 @@
 from qdrant_client.models import (
     FieldCondition,
     Filter,
+    MatchAny,
     MatchText,
     MatchValue,
 )
 
 from lcars_mcp_server.embeddings import embed_query
-from lcars_mcp_server.qdrant import format_result, parse_tags, qdrant
+from lcars_mcp_server.postgres import get_metadata_map, get_source_names_by_tags, get_sources, get_tags
+from lcars_mcp_server.qdrant import format_result, qdrant
 from lcars_mcp_server.server import mcp
 from lcars_mcp_server.settings import QDRANT_COLLECTION
 
@@ -44,9 +46,20 @@ def search(
         conditions.append(FieldCondition(key="content_type", match=MatchValue(value=content_type)))
     if filename:
         conditions.append(FieldCondition(key="filename", match=MatchText(text=filename)))
+
+    # Tags live in postgres now — resolve to source_names, then filter qdrant
     if tags:
-        for tag in tags:
-            conditions.append(FieldCondition(key="tags", match=MatchValue(value=tag)))
+        matching_sources = get_source_names_by_tags(tags)
+        if not matching_sources:
+            return []
+        # If also filtering by source_name, intersect
+        if source_name:
+            if source_name not in matching_sources:
+                return []
+        else:
+            conditions.append(
+                FieldCondition(key="source_name", match=MatchAny(any=matching_sources))
+            )
 
     query_filter = Filter(must=conditions) if conditions else None
     vector = embed_query(query)
@@ -59,38 +72,29 @@ def search(
         with_payload=True,
     )
 
-    return [format_result(point) for point in results.points]
+    # Enrich results with metadata from postgres (url, tags)
+    source_names = list({
+        (p.metadata if hasattr(p, "metadata") else p.payload).get("source_name")
+        for p in results.points
+    })
+    meta_map = get_metadata_map(source_names)
+
+    return [
+        format_result(
+            point,
+            metadata=meta_map.get(
+                (point.metadata if hasattr(point, "metadata") else point.payload).get("source_name"),
+                {},
+            ),
+        )
+        for point in results.points
+    ]
 
 
 @mcp.tool()
 def list_sources() -> list[dict]:
     """List all indexed source repositories."""
-    sources = {}
-    offset = None
-
-    while True:
-        result = qdrant.scroll(
-            collection_name=QDRANT_COLLECTION,
-            limit=100,
-            offset=offset,
-            with_payload=["source_name", "url", "source_type"],
-            with_vectors=False,
-        )
-        points, offset = result
-
-        for point in points:
-            name = point.payload.get("source_name")
-            if name and name not in sources:
-                sources[name] = {
-                    "source_name": name,
-                    "url": point.payload.get("url"),
-                    "source_type": point.payload.get("source_type"),
-                }
-
-        if offset is None:
-            break
-
-    return sorted(sources.values(), key=lambda s: s["source_name"])
+    return get_sources()
 
 
 @mcp.tool()
@@ -100,31 +104,4 @@ def list_tags(source_name: str | None = None) -> list[str]:
     Args:
         source_name: Optionally filter to tags from a specific source.
     """
-    all_tags = set()
-    offset = None
-    query_filter = None
-
-    if source_name:
-        query_filter = Filter(
-            must=[FieldCondition(key="source_name", match=MatchValue(value=source_name))]
-        )
-
-    while True:
-        result = qdrant.scroll(
-            collection_name=QDRANT_COLLECTION,
-            scroll_filter=query_filter,
-            limit=100,
-            offset=offset,
-            with_payload=["tags"],
-            with_vectors=False,
-        )
-        points, offset = result
-
-        for point in points:
-            tags = parse_tags(point.payload.get("tags", "[]"))
-            all_tags.update(tags)
-
-        if offset is None:
-            break
-
-    return sorted(all_tags)
+    return get_tags(source_name)

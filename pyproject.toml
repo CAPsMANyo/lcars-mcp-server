@@ -8,6 +8,8 @@ dependencies = [
     "qdrant-client",
     "python-dotenv",
     "httpx",
+    "psycopg[binary]",
+    "psycopg-pool",
 ]
 
 [project.scripts]

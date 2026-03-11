@@ -1,7 +1,5 @@
 """Qdrant client and helper functions."""
 
-import json
-
 from qdrant_client import QdrantClient
 
 from lcars_mcp_server.settings import QDRANT_API_KEY, QDRANT_URL
@@ -9,28 +7,21 @@ from lcars_mcp_server.settings import QDRANT_API_KEY, QDRANT_URL
 qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=True)
 
 
-def parse_tags(tags_field) -> list[str]:
-    """Parse tags from JSON string or return as-is if already a list."""
-    if isinstance(tags_field, list):
-        return tags_field
-    if isinstance(tags_field, str):
-        try:
-            return json.loads(tags_field)
-        except (json.JSONDecodeError, TypeError):
-            return []
-    return []
+def format_result(point, metadata: dict | None = None) -> dict:
+    """Format a Qdrant point into a clean result dict.
 
-
-def format_result(point) -> dict:
-    """Format a Qdrant point into a clean result dict."""
+    Fields from qdrant: source_name, filename, language, content_type, chunk_text.
+    Fields enriched from postgres metadata: url, tags.
+    """
     payload = point.metadata if hasattr(point, "metadata") else point.payload
+    meta = metadata or {}
     return {
         "score": round(point.score, 4) if hasattr(point, "score") else None,
         "source_name": payload.get("source_name"),
         "filename": payload.get("filename"),
-        "url": payload.get("url"),
+        "url": meta.get("url"),
         "language": payload.get("language"),
         "content_type": payload.get("content_type"),
-        "tags": parse_tags(payload.get("tags", "[]")),
+        "tags": meta.get("tags", []),
         "chunk_text": payload.get("chunk_text"),
     }

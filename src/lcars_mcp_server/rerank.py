@@ -27,11 +27,11 @@ def rerank(query: str, documents: list[str], top_n: int) -> list[int]:
         json={
             "model": RERANK_MODEL,
             "query": query,
-            "documents": documents,
+            "texts": documents,
             "top_n": top_n,
         },
         timeout=30.0,
     )
     resp.raise_for_status()
-    results = resp.json()["results"]
-    return [r["index"] for r in sorted(results, key=lambda r: r["relevance_score"], reverse=True)]
+    results = resp.json()
+    return [r["index"] for r in sorted(results, key=lambda r: r["score"], reverse=True)]

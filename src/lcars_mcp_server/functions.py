@@ -2,6 +2,7 @@
 
 import logging
 
+import httpx
 from qdrant_client.models import (
     FieldCondition,
     Filter,
@@ -85,16 +86,20 @@ def search(
 
     # Rerank results if enabled
     if RERANK_ENABLED and points:
-        try:
-            documents = [
-                (p.metadata if hasattr(p, "metadata") else p.payload).get("chunk_text", "")
-                for p in points
-            ]
-            top_n = RERANK_TOP_N if RERANK_TOP_N > 0 else limit
-            reranked_indices = rerank(query, documents, top_n)
-            points = [points[i] for i in reranked_indices]
-        except Exception:
-            logger.warning("Reranking failed, falling back to vector ordering", exc_info=True)
+        documents = [
+            (p.metadata if hasattr(p, "metadata") else p.payload).get("chunk_text", "")
+            for p in points
+        ]
+        if any(documents):
+            try:
+                top_n = RERANK_TOP_N if RERANK_TOP_N > 0 else limit
+                reranked_indices = rerank(query, documents, top_n)
+                points = [points[i] for i in reranked_indices]
+            except httpx.HTTPError:
+                logger.warning("Rerank API request failed, falling back to vector ordering", exc_info=True)
+                points = points[:limit]
+        else:
+            logger.warning("All documents have empty chunk_text, skipping rerank")
             points = points[:limit]
     else:
         points = points[:limit]

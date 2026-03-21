@@ -22,7 +22,7 @@ from lcars_mcp_server.postgres import (
 from lcars_mcp_server.qdrant import format_result, get_payload, qdrant
 from lcars_mcp_server.rerank import rerank
 from lcars_mcp_server.server import mcp
-from lcars_mcp_server.settings import QDRANT_COLLECTION, RERANK_ENABLED, RERANK_TOP_N
+from lcars_mcp_server.settings import QDRANT_COLLECTION, RERANK_ENABLED, RERANK_OVERFETCH_MULTIPLIER, RERANK_TOP_N
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def search(
         return _error("Embedding API", e)
 
     # Over-fetch when reranking to give the reranker a larger candidate pool
-    fetch_limit = (limit + offset) * 3 if RERANK_ENABLED else limit + offset
+    fetch_limit = (limit + offset) * RERANK_OVERFETCH_MULTIPLIER if RERANK_ENABLED else limit + offset
 
     try:
         results = qdrant.query_points(

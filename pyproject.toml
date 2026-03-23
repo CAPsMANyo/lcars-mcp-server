@@ -1,0 +1,23 @@
+[project]
+name = "lcars-mcp-server"
+version = "0.1.0"
+description = "MCP server for searching LCARS RAG Qdrant embeddings"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp",
+    "qdrant-client",
+    "python-dotenv",
+    "httpx",
+    "psycopg[binary]",
+    "psycopg-pool",
+]
+
+[project.scripts]
+lcars-mcp-server = "lcars_mcp_server:mcp.run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lcars_mcp_server"]

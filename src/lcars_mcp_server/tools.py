@@ -148,7 +148,9 @@ def search(
 def list_sources() -> list[dict]:
     """List all indexed source repositories.
 
-    Returns list of dicts with: source_name, source_type, url, tags, file_count.
+    Returns list of dicts with: source_name, source_type, url, path, tags, file_count.
+    For git sources, `url` holds the repo URL and `path` is empty.
+    For local sources, `path` holds the filesystem path and `url` is an optional reference link.
 
     Examples:
         list_sources()
@@ -183,7 +185,7 @@ def get_source(source_name: str) -> dict:
     Args:
         source_name: Repository name (e.g. "cocoindex", "frigate").
 
-    Returns dict with: source_name, source_type, url, tags, file_count.
+    Returns dict with: source_name, source_type, url, path, tags, file_count.
     Returns empty dict if source not found.
 
     Examples:
@@ -276,12 +278,12 @@ def search_sources(
 
     Args:
         tags: Filter to sources matching ALL given tags.
-        source_type: Filter by source type (e.g. "git", "crawl").
+        source_type: Filter by source type ("git" or "local").
 
     Examples:
         search_sources(tags=["homelab"])
         search_sources(tags=["ai", "python"])
-        search_sources(source_type="crawl")
+        search_sources(source_type="local")
     """
     try:
         return pg_search_sources(tags=tags, source_type=source_type)

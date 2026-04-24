@@ -10,7 +10,7 @@ from lcars_mcp_server.settings import POSTGRES_URL, METADATA_TABLE
 pool = ConnectionPool(POSTGRES_URL, min_size=1, max_size=5)
 
 _TABLE = sql.Identifier(METADATA_TABLE)
-_SELECT_COLS = sql.SQL("source_name, source_type, url, tags, file_count")
+_SELECT_COLS = sql.SQL("source_name, source_type, url, path, tags, file_count")
 
 
 def get_sources(source_name: str | None = None) -> list[dict]:

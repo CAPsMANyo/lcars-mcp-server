@@ -13,8 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-lcars-mcp-server = "lcars_mcp_server:mcp.run"
-
+lcars-mcp-server = "lcars_mcp_server.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
